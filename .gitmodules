@@ -1,0 +1,6 @@
+[submodule "workinhoo-api"]
+	path = workinhoo-api
+	url = https://github.com/igorrochap/workinhoo-api
+[submodule "workinhoo-front"]
+	path = workinhoo-front
+	url = https://github.com/igorrochap/workinhoo-front
