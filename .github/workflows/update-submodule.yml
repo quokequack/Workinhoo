@@ -1,0 +1,61 @@
+name: Update submodule reference
+
+on:
+  repository_dispatch:
+    types:
+      - submodule-update
+
+concurrency:
+  group: submodule-update
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout parent repo with submodules
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.PARENT_REPO_PAT }}
+          submodules: true
+          fetch-depth: 0
+
+      - name: Validate submodule path
+        run: |
+          SUBMODULE="${{ github.event.client_payload.submodule_path }}"
+          if [[ "$SUBMODULE" != "workinhoo-api" && "$SUBMODULE" != "workinhoo-front" ]]; then
+            echo "::error::Unknown submodule path: $SUBMODULE"
+            exit 1
+          fi
+
+      - name: Update submodule to target commit
+        run: |
+          SUBMODULE="${{ github.event.client_payload.submodule_path }}"
+          COMMIT_SHA="${{ github.event.client_payload.commit_sha }}"
+
+          cd "$SUBMODULE"
+          git fetch origin main
+          git checkout "$COMMIT_SHA"
+          cd ..
+
+      - name: Check for changes
+        id: changes
+        run: |
+          if git diff --quiet; then
+            echo "has_changes=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_changes=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Commit and push
+        if: steps.changes.outputs.has_changes == 'true'
+        run: |
+          SUBMODULE="${{ github.event.client_payload.submodule_path }}"
+          COMMIT_MSG="${{ github.event.client_payload.commit_message }}"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git add "$SUBMODULE"
+          git commit -m "chore($SUBMODULE): $COMMIT_MSG"
+          git push
